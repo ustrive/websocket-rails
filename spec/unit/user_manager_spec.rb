@@ -52,10 +52,12 @@ module WebsocketRails
       allow(subject.sync).to receive(:destroy_remote_user)
     end
 
+    let(:dispatcher) { double('dispatcher').as_null_object }
     let(:connection) do
       connection = double('Connection')
       allow(connection).to receive(:id).and_return(1)
       allow(connection).to receive(:user_identifier).and_return('Juanita')
+      allow(connection).to receive(:dispatcher).and_return(dispatcher)
       connection
     end
 
@@ -63,6 +65,34 @@ module WebsocketRails
       it "store's a reference to a connection in the user's hash" do
         subject["username"] = connection
         expect(subject.users["username"].connections.first).to eq(connection)
+      end
+
+      context "user has no existing connections" do
+        it "dispatches websocket_rails.user_connected" do
+          connection.dispatcher.stub(:dispatch) do |dispatch_event|
+            # Make sure that we add the LocalConnection before the event
+            # is dispatched because a consumer could try to immediately send
+            # a message to the connecting user
+            subject["username"].should be_a UserManager::LocalConnection
+
+            dispatch_event.data[:identifier].should eq("username")
+            dispatch_event.is_internal?.should be true
+            dispatch_event.name.should eq(:user_connected)
+          end
+
+          subject["username"] = connection
+        end
+      end
+
+      context "user has an existing connection" do
+        before do
+          subject["username"] = connection
+        end
+
+        it "doesn't dispatch websocket_rails.user_connected" do
+          connection.dispatcher.should_not_receive(:dispatch)
+          subject["username"] = connection
+        end
       end
     end
 
@@ -86,6 +116,33 @@ module WebsocketRails
       it "deletes the connection from the users hash" do
         subject.delete(connection)
         expect(subject["Juanita"]).to be_a UserManager::MissingConnection
+      end
+
+      context "user has exactly one existing connection" do
+        it "dispatches websocket_rails.user_disconnected" do
+          connection.dispatcher.should_receive(:dispatch) do |dispatch_event|
+            # Make sure that we delete the LocalConnection before the event
+            # is dispatched
+            subject["Juanita"].should be_a UserManager::MissingConnection
+
+            dispatch_event.data[:identifier].should eq("Juanita")
+            dispatch_event.is_internal?.should be true
+            dispatch_event.name.should eq(:user_disconnected)
+          end
+
+          subject.delete(connection)
+        end
+      end
+
+      context "user has multiple existing connection" do
+        before do
+          subject["Juanita"] = double('Connection')
+        end
+
+        it "doesn't dispatch websocket_rails.user_disconnected" do
+          connection.dispatcher.should_not_receive(:dispatch)
+          subject.delete(connection)
+        end
       end
     end
 

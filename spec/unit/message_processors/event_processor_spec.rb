@@ -115,6 +115,9 @@ module WebsocketRails
           context "and the user is connected to this server" do
             before do
               @connection = double('Connection')
+              @dispatcher = double('Dispatcher')
+              allow(@dispatcher).to receive(:dispatch)
+              allow(@connection).to receive(:dispatcher).and_return(@dispatcher)
               WebsocketRails.users["username"] = @connection
             end
 

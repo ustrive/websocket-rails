@@ -51,9 +51,11 @@ module WebsocketRails
     end
 
     def []=(identifier, connection)
+      new_user_connected = @users[identifier.to_s].nil?
       @users[identifier.to_s] ||= LocalConnection.new
       @users[identifier.to_s] << connection
       sync.register_remote_user(connection) if WebsocketRails.synchronize?
+      dispatch_user_connected(connection, identifier) if new_user_connected
     end
 
     def delete(connection)
@@ -64,6 +66,7 @@ module WebsocketRails
       else
         @users.delete(identifier)
         sync.destroy_remote_user(identifier) if WebsocketRails.synchronize?
+        dispatch_user_disconnected(connection, identifier)
       end
     end
 
@@ -123,6 +126,20 @@ module WebsocketRails
 
     def remote_connection(identifier, user_hash)
       RemoteConnection.new identifier, user_hash
+    end
+
+    def dispatch_user_connected(connection, identifier)
+      e = Event.new "websocket_rails.user_connected",
+        identifier: identifier,
+        :connection => connection
+      connection.dispatcher.dispatch e
+    end
+
+    def dispatch_user_disconnected(connection, identifier)
+      e = Event.new "websocket_rails.user_disconnected",
+        identifier: identifier,
+        :connection => connection
+      connection.dispatcher.dispatch e
     end
 
     # The UserManager::LocalConnection Class serves as a proxy object
