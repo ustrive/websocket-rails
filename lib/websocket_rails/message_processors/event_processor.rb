@@ -3,7 +3,7 @@ module WebsocketRails
     class EventProcessor
 
       def processes?(message)
-        message.type == :websocket_rails
+        message.type == :websocket_rails || message.type == :user
       end
 
       include WebsocketRails::Processor
