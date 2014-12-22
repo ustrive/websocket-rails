@@ -223,6 +223,10 @@ module WebsocketRails
         true
       end
 
+      def trigger(event)
+        true
+      end
+
       def user
         @user ||= load_user
       end

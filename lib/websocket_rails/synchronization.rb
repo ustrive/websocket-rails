@@ -80,8 +80,6 @@ module WebsocketRails
                 @dispatch_queue << message
               end
             end
-
-            info "Beginning Synchronization"
           end
 
           @synchronizing = true
